@@ -88,3 +88,11 @@ i18n/*/phases/
 i18n/*/.cache/
 i18n/*/.translate-cache.json
 site/langs.js
+
+# Project memory & local agent configuration
+PROJECT_BRIEF.md
+CURRENT_STATE.md
+DECISIONS.md
+TASKS.md
+.agents/
+
