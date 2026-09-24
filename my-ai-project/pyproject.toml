@@ -1,0 +1,25 @@
+[project]
+name = "my-ai-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "wojgww", email = "wojgww@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "torch>=2.14.0",
+    "scikit-learn>=1.4",
+]
+[project.optional-dependencies]
+torch = ["torch>=2.3", "torchvision>=0.18"]
+llm = ["anthropic>=0.39", "openai>=1.50"]
+
+[project.scripts]
+my-ai-project = "my_ai_project:main"
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13.0"]
+build-backend = "uv_build"
