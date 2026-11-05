@@ -1,0 +1,9 @@
+/data/
+/logs/
+/results/
+/models/
+/remote-copy/
+/scratch/
+/*.log
+/*.txt
+/dataset.tar.gz
