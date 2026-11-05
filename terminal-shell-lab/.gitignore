@@ -4,6 +4,7 @@
 /models/
 /remote-copy/
 /scratch/
+/experiments/
 /*.log
 /*.txt
 /dataset.tar.gz
