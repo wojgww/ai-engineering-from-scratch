@@ -29,11 +29,46 @@ rozumieć jego algorytmu: uczysz się obsługi programu z terminala.
 Swoje rezultaty zapisuj w `scratch/course/`. W nowym terminalu zawsze najpierw
 wejdź do katalogu labu. Polecenia wykonuj pojedynczo, nie cały dokument naraz.
 
+### Jak czytać polecenia
+
+Ogólny zapis to `komenda [opcje] [argumenty]`. Nawiasy kwadratowe w opisach
+znaczą „opcjonalne” — nie wpisujesz ich dosłownie. Opcje zmieniają zachowanie,
+argumenty wskazują np. plik, wzorzec lub katalog. W `head -n 5 train.log`
+komendą jest head, opcją -n, jej wartością 5, a argumentem plik train.log.
+Krótkie opcje często można łączyć: `ls -la` to `ls -l -a`.
+Opcje nie są wspólne dla wszystkich programów: `-n` znaczy co innego w head i sort.
+
+Shell najpierw interpretuje zmienne, wzorce i przekierowania, potem uruchamia
+program. `*.log` rozwija do nazw plików; `'*.log'` przekazuje dosłownie, co
+przydaje się w find. `"$COURSE_PID"` rozwija zmienną i zachowuje ją jako jeden
+argument. Pojedyncze cudzysłowy blokują rozwijanie zmiennych przez shell.
+`--` w wielu programach kończy listę opcji, np. `grep -- '-1' plik.txt` szuka
+tekstu -1, zamiast traktować go jako opcję.
+
+Pomoc: `ls --help`, `man ls`, `help cd`. Man opisuje narzędzia systemowe,
+help wbudowane polecenia Basha; w man klawisz q wychodzi, `/tekst` szuka.
+Man może wymagać doinstalowania. Poniższe opcje dotyczą Basha i typowych
+narzędzi Ubuntu; wersje macOS mogą się różnić.
+
 ## 1. Orientacja w katalogach · 10 minut
 
 **Cel:** wiesz, względem którego katalogu shell szuka plików.
 `pwd` pokazuje bieżący katalog, `ls -la` jego zawartość, `cd` zmienia katalog.
 `.` oznacza tutaj, `..` poziom wyżej, `~` katalog domowy.
+
+**Jak działają komendy i argumenty:**
+
+| Komenda / składnia | Działanie i przydatne opcje |
+|---|---|
+| `pwd` | Wypisuje bieżącą ścieżkę. `-P` pokazuje fizyczną ścieżkę po rozwiązaniu dowiązań. |
+| `ls [opcje] [ścieżka]` | Wyświetla nazwy w katalogu; domyślnie bieżącym. `-l` szczegóły, `-a` także ukryte, `-h` czytelne rozmiary z -l, `-t` najnowsze modyfikacje najpierw, `-r` odwrotna kolejność, `-d` sam katalog zamiast jego zawartości. |
+| `cd [katalog]` | Zmienia katalog aktualnego shella. Bez argumentu wraca do domu; `cd -` wraca do poprzedniego katalogu. `cd ..` wchodzi poziom wyżej. |
+| `echo [tekst...]` | Wypisuje argumenty zakończone nową linią. `-n` pomija tę linię. Do zwykłych notatek nie potrzebujesz opcji. |
+| `mkdir -p ścieżka` | Tworzy brakujące katalogi po drodze; nie zgłasza błędu, jeśli już istnieją. |
+| `clear` | Czyści widok terminala; historia poleceń pozostaje dostępna. |
+
+Przykład: `ls -lh models` pokazuje szczegóły modeli z rozmiarami w czytelnych jednostkach.
+W kolumnie rozmiaru katalogu ls nie podaje sumy rozmiarów wszystkich jego plików.
 
 ```bash
 cd data
@@ -75,6 +110,24 @@ pwd
 `cat` czyta całość, `head` początek, `tail` koniec, `grep` wybiera wiersze,
 `wc -l` je liczy, `awk` wybiera pola, `sort` porządkuje wynik.
 
+**Jak działają komendy i argumenty:**
+
+| Komenda / składnia | Działanie i przydatne opcje |
+|---|---|
+| `cat [pliki...]` | Łączy treści wskazanych plików i wypisuje je na stdout. `-n` numeruje wszystkie wiersze. |
+| `head -n N plik` | Pokazuje pierwsze N wierszy; bez opcji 10. Lekcyjne `head -3` to skrót `head -n 3`. |
+| `tail -n N plik` | Pokazuje ostatnie N wierszy; bez opcji 10. `-f` czeka na dopisywane dane, `-F` także ponawia otwieranie po zastąpieniu pliku. |
+| `grep [opcje] wzorzec [pliki...]` | Wypisuje pasujące wiersze, domyślnie przez wyrażenie regularne. `-i` ignoruje wielkość liter, `-n` dodaje numer wiersza, `-v` wybiera niepasujące, `-c` liczy pasujące wiersze osobno dla plików, `-F` szuka tekstu dosłownie, `-E` włącza rozszerzone wzorce, `-r` przeszukuje katalogi. |
+| `wc [opcje] [pliki...]` | Zlicza dane. `-l` znaki nowej linii, `-w` słowa, `-c` bajty. W naszych logach każdy wiersz ma końcową nową linię. |
+| `awk 'program' [plik]` | Przetwarza kolejne wiersze na pola: `$1` pierwsze, `$NF` ostatnie, `$0` cały wiersz. `-F '='` ustawia separator pól; domyślnie białe znaki. |
+| `sort [opcje] [plik]` | Domyślnie sortuje tekstowo. `-n` liczbowo, `-r` malejąco, `-t '='` separator, `-k2,2` wyłącznie pole 2, `-u` usuwa powtórzone linie, `-h` rozumie rozmiary K/M/G. |
+| `diff [opcje] plik1 plik2` | Porównuje wiersze. `-u` dodaje kontekst zmian, `-q` tylko informuje, czy pliki się różnią. Kod 0: identyczne, 1: różne, >1: problem wykonania. |
+
+Przykłady: `grep -nF 'loss:' train.log` dodaje numery znalezionych wierszy;
+`grep -E 'loss:|final_accuracy' train.log` wybiera jeden z dwóch wzorców.
+Awk w tym kursie czyta logi; `awk -F,` nie jest pełnym parserem CSV z polami
+zawierającymi przecinki w cudzysłowach.
+
 ```bash
 head -3 data/lessons.csv
 grep 'final_accuracy' results/*.log
@@ -114,6 +167,26 @@ Etykieta 1 oznacza deklarowany typ Build, 0 pozostałe typy.
 **Cel:** rozdzielasz wynik od komunikatów i zapisujesz oba.
 `|` łączy stdout z wejściem następnej komendy. `>` nadpisuje, `>>` dopisuje,
 `2>` zapisuje stderr, `2>&1` kieruje stderr tam, gdzie aktualnie idzie stdout.
+
+**Jak działają komendy i argumenty:**
+
+Program czyta stdin (deskryptor 0), wypisuje wynik na stdout (1), a komunikaty
+na stderr (2). Potok przekazuje tylko stdout, dopóki nie połączysz strumieni.
+Przekierowania interpretuje shell, a nie Python czy grep.
+
+| Zapis / komenda | Działanie i przydatne opcje |
+|---|---|
+| `> plik`, `>> plik` | Zapis stdout: odpowiednio od nowa albo na końcu. Shell otwiera plik jeszcze przed uruchomieniem programu. |
+| `2> plik`, `2>> plik` | Zapis lub dopisywanie stderr. |
+| `> plik 2>&1` | Kieruje oba strumienie do pliku. Odwrotna kolejność nie daje tego samego wyniku: stderr zachowuje wcześniejszy cel stdout. |
+| `tee [-a] plik` | Kopiuje stdin na ekran i do pliku. Domyślnie nadpisuje; `-a` dopisuje. |
+| `python3 -u train.py [opcje skryptu]` | Interpreter uruchamia skrypt. `-u` wyłącza buforowanie stdout/stderr; opcje po nazwie train.py obsługuje już sam skrypt. |
+| `--epochs N`, `--lr X`, `--delay S`, `--model ŚCIEŻKA` | Opcje naszego train.py: liczba epok, współczynnik uczenia, pauza między epokami, plik modelu. `--help` wyświetla ich opis. |
+| `grep --line-buffered wzorzec` | Wysyła dopasowania wiersz po wierszu, zamiast czekać na zapełnienie bufora; przydatne za tail -f. |
+
+Przykład: `python3 -u train.py --epochs 10 --delay 0.1 2>&1 | tee -a scratch/course/history.log`.
+Nie używaj `grep ... train.log > train.log`: shell wyzeruje wejściowy plik,
+zanim grep zdąży go przeczytać. Zapisuj wynik pod inną nazwą.
 
 ```bash
 python3 train.py --epochs 3 --delay 0 > scratch/course/example.log 2> scratch/course/example.err
@@ -171,6 +244,23 @@ tail -f logs/live.log | grep --line-buffered 'loss:'
 `&` uruchamia w tle, `$!` zawiera PID tego zadania, `jobs` pokazuje zadania
 bieżącej powłoki, `ps` procesy, `pgrep` szuka procesów, `fg` przywraca zadanie.
 
+**Jak działają komendy i argumenty:**
+
+| Komenda / zapis | Działanie i przydatne opcje |
+|---|---|
+| `komenda &` | Uruchamia asynchronicznie; shell od razu przyjmuje kolejne komendy. `$!` odczytuj zaraz po starcie właściwego zadania. |
+| `jobs [-l]` | Zadania bieżącego shella; `-l` pokazuje również PID. Numery w nawiasach kwadratowych służą do zapisu `%1`, `%2` itd. |
+| `fg %N`, `bg %N` | Wznawia zadanie N na pierwszym planie lub w tle. Ctrl+Z zawiesza zadanie na pierwszym planie; bg pozwala je wznowić bez zajmowania terminala. |
+| `ps aux` | Migawka procesów: `a` rozszerza wybór procesów z terminalami, `u` format z użytkownikiem i zasobami, `x` uwzględnia procesy bez terminala. To składnia bez myślnika. |
+| `ps -p PID -o pid,stat,etime,args` | Wybiera konkretny PID i kolumny: identyfikator, stan, czas działania, polecenie. |
+| `pgrep [-af] wzorzec` | Szuka procesów. Domyślnie po nazwie; `-f` przeszukuje pełną linię komendy, `-a` wypisuje ją obok PID. |
+| `kill [-TERM] PID` | Wysyła sygnał, domyślnie TERM. `-STOP` zawiesza, `-CONT` wznawia. `-KILL` wymusza zakończenie bez możliwości sprzątania przez program — w tych ćwiczeniach wystarczy TERM. |
+| `nohup komenda` | Uruchamia komendę z ignorowaniem SIGHUP. Sam nie uruchamia w tle: dodaj &. Wskaż własny log zamiast polegać na domyślnym nohup.out. |
+| `pkill -f wzorzec` | Wysyła sygnał do wszystkich procesów pasujących pełną linią komendy. W kursie tylko czytamy ten wariant; proces kończymy zapisanym PID. |
+
+Przykład: `ps -p "$COURSE_PID" -o pid,stat,etime,args` pozwala sprawdzić dokładnie
+Twój proces. Status T oznacza zatrzymanie, R działanie/gotowość, S oczekiwanie.
+
 ```bash
 python3 -u train.py --epochs 300 --delay 0.3 > scratch/course/background.log 2>&1 &
 COURSE_PID=$!
@@ -220,6 +310,26 @@ terminala, ale nie chroni przed restartem komputera. Samo & nie gwarantuje przet
 Sprawdź `tmux -V`. Jeśli brakuje programu, zainstaluj na Ubuntu przez
 `sudo apt install tmux` lub wróć do działu później. Nic nie instalowano za Ciebie.
 
+**Jak działają komendy i argumenty:**
+
+Tmux ma sesje, w nich okna, a w oknach panele. Programy uruchamiają się w panelach;
+zamknięcie widoku klienta nie usuwa automatycznie sesji na serwerze tmux.
+
+| Komenda | Działanie i przydatne argumenty |
+|---|---|
+| `tmux new -s NAZWA` | Tworzy nazwaną sesję i dołącza do niej. `new` to skrót new-session; `-d` tworzy bez dołączania. |
+| `tmux ls` | Lista sesji; skrót list-sessions. Brak serwera/sesji może dać niezerowy kod. |
+| `tmux attach -t NAZWA` | Dołącza do sesji wybranej przez target -t. |
+| `tmux split-window -h` | Dzieli panel na lewy i prawy; `-v` na górny i dolny. `-t NAZWA` pozwala wskazać cel. |
+| `tmux new-window -n NAZWA` | Tworzy nowe okno w sesji; -n nadaje mu nazwę. Skrót klawiaturowy: Ctrl+B, potem c. |
+| `tmux kill-session -t NAZWA` | Usuwa tylko wskazaną sesję; nie używaj kill-server do sprzątania pojedynczego ćwiczenia. |
+| `tmux -V` | Pokazuje wersję programu. |
+
+Prefix Ctrl+B naciśnij i puść przed drugim klawiszem. Ctrl+B, potem d odłącza
+klienta. W sesji Ctrl+B, potem n wybiera następne okno, p poprzednie.
+`sudo apt install tmux`: sudo uruchamia z uprawnieniami administratora,
+apt install instaluje pakiet. Brew install to wariant z lekcji dla macOS.
+
 ```bash
 tmux new -s course-shell
 ```
@@ -266,6 +376,24 @@ Zakończenie sesji zamyka jej panele i może zakończyć działające tam progra
 
 **Cel:** odczytujesz stan komputera. Htop pokazuje procesy i CPU/RAM,
 nvidia-smi stan GPU NVIDIA, df miejsce w systemie plików, du rozmiary plików.
+
+**Jak działają komendy i argumenty:**
+
+| Komenda / składnia | Działanie i przydatne opcje |
+|---|---|
+| `htop [-p PID]` | Interaktywny widok procesów i zasobów; -p ogranicza widok do wskazanego procesu. F9 wybiera sygnał, więc w tym kursie do zakończenia używaj znanego PID z działu 4. |
+| `top -p PID` | Alternatywny interaktywny monitor jednego procesu; `-b -n 1` wypisuje pojedynczą migawkę bez interaktywnego widoku. |
+| `nvtop` | Monitor wykorzystania GPU i procesów; widoczność sprzętu zależy od sterownika, uprawnień i środowiska. |
+| `watch -n 1 komenda` | Powtarza komendę co sekundę; `-n 2` co dwie sekundy, `-d` wyróżnia zmiany. Ctrl+C kończy. |
+| `nvidia-smi` | Odczytuje stan sterownika i kart NVIDIA. `-L` lista GPU, `-l 1` odświeżanie co sekundę, `--query-gpu=name,memory.used,memory.total --format=csv` wybrane pola tabeli. |
+| `--query-compute-apps=pid,name,used_memory --format=csv` | Opcje nvidia-smi wybierające procesy obliczeniowe GPU i format wyniku; to inna tabela niż query-gpu. |
+| `df -h [ścieżka]` | Wykorzystanie systemów plików. -h czytelne jednostki, -T typ systemu; ścieżka ogranicza wynik do jej systemu plików. |
+| `du -sh ścieżka` | Zajętość plików/katalogów: -s jedna suma na argument, -h czytelne jednostki; `--max-depth=1` pokazuje też podkatalogi pierwszego poziomu. |
+| `env` | Wypisuje eksportowane zmienne środowiska. `env NAZWA=wartość komenda` ustawia zmienną tylko dla uruchomionego programu. |
+| `date [+FORMAT]` | Pokazuje czas; `date '+%Y-%m-%d %H:%M:%S'` wybiera format, -u czas UTC. |
+
+Przykład: `watch -n 2 -d nvidia-smi` odświeża GPU co dwie sekundy i zaznacza
+zmiany. Odczyt dotyczy maszyny/środowiska, w którym wykonałeś komendę.
 
 ```bash
 df -h .
@@ -316,6 +444,23 @@ Brak zmiennych nie dowodzi braku CUDA/PyTorch. Grep bez dopasowań zwraca 1.
 **Cel:** znajdujesz artefakty, rozpakowujesz dane i sprawdzasz ich kopię.
 Find szuka, xargs przekazuje nazwy kolejnej komendzie, tar rozpakowuje,
 wget pobiera po HTTP, rsync synchronizuje katalogi.
+
+**Jak działają komendy i argumenty:**
+
+| Komenda / składnia | Działanie i przydatne opcje |
+|---|---|
+| `find katalog warunki` | Przechodzi po katalogach. `-type f` tylko zwykłe pliki, `-name '*.json'` nazwa z wzorcem, `-size +100M` pliki większe od 100 MiB. `-o` to lub; grupy zapisuj jako `\(` i `\)`, aby shell przekazał nawiasy. |
+| `find ... -print0` | Oddziela nazwy bajtem NUL zamiast nową linią, dzięki czemu spacje w nazwach nie dzielą argumentów. |
+| `xargs -0 -r komenda` | Czyta argumenty zakończone NUL i uruchamia komendę; -r w GNU xargs nie uruchamia jej przy pustej liście. Bez -0 zwykłe białe znaki i cudzysłowy wpływają na podział. |
+| `tar -xzf archiwum -C katalog` | -x rozpakuj, -z gzip, -f nazwa pliku archiwum, -C katalog docelowy (musi istnieć). `tar -tzf archiwum` wyświetla zawartość bez rozpakowania; -v dopisuje listę obsługiwanych plików. |
+| `wget [-O plik] URL` | Pobiera URL; -O wybiera ścieżkę wyniku i ją nadpisuje. `-c` próbuje wznowić pobieranie, `--spider` sprawdza zasób bez pobierania jego treści. |
+| `rsync -avz źródło cel` | -a tryb archiwizacji (rekurencja i zachowanie m.in. czasów/uprawnień), -v szczegóły, -z kompresja przesyłanych danych. `-n` symulacja bez zapisu, `--progress` postęp, -c porównanie sum kontrolnych zamiast domyślnego rozmiaru/czasu. |
+| `python3 -m http.server PORT` | -m uruchamia moduł Pythona. `--bind 127.0.0.1` nasłuchuje tylko lokalnie, `--directory data` wybiera udostępniony katalog. |
+
+Przykład: `rsync -avnc data/ scratch/course/copy/` sprawdza plan synchronizacji
+z porównaniem treści. Zwykłe rsync nie usuwa nadmiarowych plików celu.
+W kursie nie potrzebujesz opcji --delete. Kompresja -z daje sens głównie przy
+transferze przez sieć, nie przy kopiowaniu między katalogami tego samego dysku.
 
 ```bash
 find models -type f -name '*.json' -print0 | xargs -0 du -h
@@ -370,6 +515,20 @@ w obu komendach. Du -h zaokrągla, więc przy małych modelach możliwe są remi
 Zdalna praktyka wymaga Twojego serwera i dostępu SSH. Bez niego wykonaj wariant
 lokalny i oznacz transfer jako nieprzećwiczony. Localhost też wymaga serwera SSH.
 
+**Jak działają komendy i argumenty:**
+
+| Komenda / składnia | Działanie i przydatne opcje |
+|---|---|
+| `ssh [opcje] USER@HOST [komenda]` | Otwiera szyfrowaną sesję; opcjonalna komenda wykona się zdalnie, np. pwd. `-i plik` klucz, `-p PORT` port SSH, `-v` diagnostyka, `-F plik` alternatywna konfiguracja, `-G` wypisanie konfiguracji bez połączenia. |
+| `ssh -N -L 8888:localhost:8888 USER@HOST` | -L tworzy przekierowanie lokalnego portu; -N nie otwiera zdalnej powłoki, więc służy samemu tunelowi. Ctrl+C kończy połączenie. |
+| `scp [opcje] źródło cel` | Kopiuje pliki; USER@HOST:ścieżka wskazuje stronę zdalną. `-P PORT` port (duże P), `-i klucz`, `-r` całe katalogi, `-p` zachowanie czasów/uprawnień. |
+| `rsync -avz -e 'ssh -p PORT' źródło cel` | Rsync przez SSH na innym porcie. Zapis USER@HOST:ścieżka określa, która strona jest zdalna. -n pozwala obejrzeć plan przed transferem. |
+
+W konfiguracji SSH Host to alias, HostName adres, User login, IdentityFile klucz,
+Port numer portu. `ssh -p 2222 ...` i `scp -P 2222 ...` to częsta różnica do zapamiętania.
+Przy pierwszym połączeniu porównaj odcisk klucza hosta z informacją od administratora
+lub z panelu swojego serwera. Nie wyłączaj weryfikacji klucza, żeby ominąć ten krok.
+
 **Zadania bez serwera:**
 
 1. Utwórz scratch/course/ssh-config.example z Host gpu, HostName 192.0.2.10,
@@ -419,6 +578,21 @@ Pierwsze scp wysyła, drugie pobiera. Tunel przekazuje lokalny port 8888 do port
 
 **Cel:** tworzysz własne skróty. Alias zastępuje nazwę komendą, funkcja może
 obsłużyć argumenty. Source wykonuje plik w aktualnym shellu, zachowując definicje.
+
+**Jak działają komendy i argumenty:**
+
+| Komenda / zapis | Działanie i przydatne argumenty |
+|---|---|
+| `alias nazwa='komenda'` | Definiuje rozwinięcie nazwy w interaktywnym shellu. `alias nazwa` pokazuje definicję, samo alias listę definicji. Alias nie ma własnych parametrów $1/$2 jak funkcja. |
+| `unalias nazwa` | Usuwa konkretny alias z bieżącego shella. Nie zmienia pliku, z którego został wczytany. |
+| `source plik [argumenty...]` | Wykonuje plik w aktualnym shellu; skrót to `. plik`. Używaj do plików, których zawartość znasz, bo to normalne wykonanie kodu. |
+| `nazwa() { komendy; }` | Definiuje funkcję; $1 to pierwszy argument, $2 drugi, `"$@"` wszystkie argumenty z zachowaniem ich granic. `${1:-5}` wybiera 5 przy braku/pustym argumencie. |
+| `type nazwa`, `command -v nazwa` | Pierwsze opisuje rodzaj/definicję polecenia; drugie pokazuje sposób jego odnalezienia i zwraca błąd, jeśli go brak. Przydatne do sprawdzenia, czy działa alias czy program. |
+
+Przykład: `type clast` pokazuje treść funkcji, a `alias closs` definicję skrótu.
+`source aliases.sh` zachowuje definicje w tym terminalu; `bash aliases.sh` wykonuje
+plik w osobnym procesie, więc po jego zakończeniu nowe aliasy nie zostają w rodzicu.
+Pomocnicze funkcje z lekcji (np. newexp) są kodem shella, a nie osobnymi pakietami.
 
 ```bash
 alias coursepwd='pwd'
@@ -472,6 +646,24 @@ lokalny katalog w experiments/. Własne skróty zakładają pracę z katalogu la
 seq generuje liczby, sleep robi przerwę, `$(...)` wstawia wynik komendy.
 Średnik wykonuje kolejny krok niezależnie od sukcesu, && tylko po sukcesie.
 Pipefail pozwala wykryć błąd komendy wewnątrz potoku.
+
+**Jak działają konstrukcje i argumenty:**
+
+| Zapis / komenda | Działanie i przydatne warianty |
+|---|---|
+| `for x in a b c; do ...; done` | Przypisuje kolejno każdą wartość do x i wykonuje ciało pętli. `"$x"` przekazuje bieżącą wartość jako jeden argument. |
+| `seq KONIEC` / `seq START KROK KONIEC` | Generuje liczby; `seq 1 2 5` daje 1, 3, 5. `seq 1 3` to zakres z domyślnym krokiem 1. |
+| `sleep CZAS` | Pauzuje; na Ubuntu 0.1 oznacza 0.1 sekundy, 2m dwie minuty. |
+| `echo 'scale=4; 1/3' \| bc` | Bc czyta obliczenie ze stdin; scale ustala liczbę cyfr dziesiętnych dzielenia. `bc -l` ładuje bibliotekę matematyczną i ustawia domyślnie scale=20. |
+| `$(komenda)` | Wstawia stdout komendy, usuwając końcowe nowe linie. Nie jest uruchomieniem w tle. W ogólnym przypadku ujmij rozwinięcie w podwójne cudzysłowy. |
+| `a; b`, `a && b`, `a \| b` | Po średniku b wykona się zawsze; po && tylko przy kodzie 0 komendy a; po potoku b przetwarza stdout komendy a. |
+| `set -o pipefail` / `set +o pipefail` | Włącza/wyłącza uwzględnianie błędów wcześniejszych elementów potoku. Gdy kilka komend zawiedzie, kod pochodzi od ostatniej nieudanej komendy w kolejności potoku. |
+| `$?`, `--help` | $? to kod ostatniego polecenia/potoku (0 zwykle sukces); --help to częsta, ale nie uniwersalna opcja pomocy programu. Nie jest osobną komendą. |
+| `mail -s 'temat' ADRES` | -s ustawia temat; treść mail czyta ze stdin. Wymaga klienta i transportu poczty; w tym kursie niczego nie wysyłamy. |
+
+Przykład: `python3 train.py --epochs 5 --delay 0 && echo 'Sukces'` wypisze
+potwierdzenie tylko po poprawnym zakończeniu treningu. Zwykła pętla for sama nie
+przerywa przy pierwszym błędzie — w mini-projekcie sprawdź każdy log osobno.
 
 ```bash
 for n in $(seq 1 3); do echo "Przebieg $n"; sleep 0.1; done
