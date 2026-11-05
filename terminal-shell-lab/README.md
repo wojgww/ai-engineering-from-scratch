@@ -4,6 +4,9 @@ Przejdziesz całą drogę od poruszania się po katalogach do uruchamiania treni
 przetwarzania logów i kopiowania wyników. Kurs rozwija lekcję 10 z fazy 0.
 [Ściąga wszystkich komend i aliasów](SCIAGA.md) pozostaje materiałem referencyjnym.
 
+Do zadań 9–10 o przekierowaniu działającego procesu i sieci przejdź do
+[kursu Linux: procesy, deskryptory i sieć](linux-network-course/README.md).
+
 Pracuj w Bash na Ubuntu, po jednym dziale. Najpierw wykonaj przykład,
 potem samodzielnie zadania. Rozwiązania pod każdym działem są schowane.
 Odhaczaj zaliczenie dopiero po wykonaniu. Orientacyjnie 2–3 godziny łącznie;

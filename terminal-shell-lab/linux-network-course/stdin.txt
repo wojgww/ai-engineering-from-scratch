@@ -1,0 +1,2 @@
+Pierwsza wiadomosc z pliku zamiast klawiatury.
+Druga wiadomosc: deskryptor 0 to standardowe wejscie.
