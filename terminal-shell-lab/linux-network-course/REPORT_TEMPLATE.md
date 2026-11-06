@@ -3,12 +3,13 @@
 Data: do uzupełnienia. Środowisko (host/VM/kontener): do uzupełnienia.
 Polecenia wykonane samodzielnie i ograniczenia: do uzupełnienia.
 
-## Zadanie 9 — zmiana deskryptorów działającego procesu
+## Zadanie 9 — stdout działającego sleep 1000 → /tmp/foo
 
-- PID przed i po zmianie, obserwacja ciągłości procesu:
+- Polecenie startowe sleep 1000 &; PID przed i po zmianie:
 - Cel fd 0/1/2 przed zmianą:
 - Dokładne komendy GDB, wyniki open/dup2/close:
-- Cel fd 0/1/2 po zmianie i dowód nowych zapisów:
+- Cel fd 1 po zmianie (/tmp/foo); potwierdzenie, że fd 0 i 2 się nie zmieniły:
+- Dlaczego pusty /tmp/foo jest poprawny (sleep nie wypisuje danych):
 - Dlaczego zapis do /proc/PID/fd/1 nie zastępuje dup2:
 - Jeśli coś nie zadziałało: pełny komunikat, bez deklarowania wykonania:
 
@@ -20,7 +21,7 @@ Polecenia wykonane samodzielnie i ograniczenia: do uzupełnienia.
 - ESTABLISHED, TIME-WAIT oraz wyjaśnienie SYN-SENT:
 - Czy faktycznie zobaczono SYN-SENT, czy wyjaśniono go teoretycznie:
 
-### 2. Ręczne HTTP i curl
+### 2. Ręczne HTTP i curl — 127.0.0.1:8080
 
 - Żądanie wysłane przez nc:
 - Status i nagłówki odpowiedzi oraz ich znaczenie:
@@ -28,9 +29,9 @@ Polecenia wykonane samodzielnie i ograniczenia: do uzupełnienia.
 
 ### 3. DNS
 
-- Domena: neverssl.com. Rekord A i serwer odpowiadający:
+- Lokalna nazwa localhost: wynik getent oraz zapytania do lokalnego resolvera, jeśli dostępny:
 - Rola hosts, resolv.conf i systemd-resolved na tej maszynie:
-- Rekurencja a iteracja; faktyczne wyniki dig +trace lub powód blokady:
+- Rekurencja a iteracja; dlaczego localhost nie ma publicznego łańcucha dig +trace (część teoretyczna):
 
 ### 4. Wywołania systemowe
 

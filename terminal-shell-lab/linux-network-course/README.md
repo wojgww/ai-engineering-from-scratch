@@ -5,15 +5,15 @@ Każdy dział ma wyjaśnienie, argumenty komend, zadania i rozwijane rozwiązani
 Pracuj w Bash na Ubuntu, po jednym dziale; całość to około 3–5 godzin.
 Potrzebujesz dwóch, czasami trzech okien terminala na tej samej maszynie.
 
-**Prostsza strona do ćwiczeń:** Twoje `http://127.0.0.1:8080/` — mały serwer
-dołączony do kursu, bez HTTPS, reklam i przekierowań. Dla zadań z publiczną
-domeną wybieramy **`http://neverssl.com/`** zamiast example.com.
-Sprawdzono jego odpowiedź HTTP 200 podczas przygotowania, 2026-11-06 czasu polskiego.
-Publiczna strona może później odpowiadać inaczej; lokalny serwer daje stały przebieg.
+**Zadanie 9:** dokładnie jak na zrzucie — uruchamiasz `sleep 1000 &`, a potem
+zmieniasz stdout tego już działającego procesu na `/tmp/foo`, zachowując PID.
+**Zadanie 10:** używasz wyłącznie dołączonego serwera `http://127.0.0.1:8080/`
+(lub `http://localhost:8080/`). Wszystkie połączenia HTTP i pomiary TCP są lokalne.
+DNS omawiamy na nazwie localhost; jej szczególne zachowanie wyjaśnia dział 7.
 
 | Część zrzutu | Działy kursu |
 |---|---|
-| 9: zmiana wejścia/wyjścia już działającego procesu | 1–3 |
+| 9: stdout działającego sleep → /tmp/foo | 1–3 |
 | 10.1: handshake TCP i stany ss | 4–5 |
 | 10.2: ręczne HTTP, nc i curl | 6 |
 | 10.3: DNS i dig +trace | 7 |
@@ -31,11 +31,11 @@ cd /home/ai_workspace/Projekty/ai-engineering-from-scratch/terminal-shell-lab/li
 mkdir -p scratch
 ```
 
-Pliki: `io_demo.py` wypisuje prawdziwe komunikaty z PID i numerem kroku;
-`stdin.txt` zawiera tekst do wejścia procesu; `server.py` udostępnia prostą
-stronę `web/index.html`, `/health` i odpowiedzi 404. Wszystko działa na stdlib Pythona.
-Program I/O kończy się domyślnie po 300 krokach, serwer po 900 sekundach.
-Nie wymagają uruchamiania Docker ani innych usług.
+Do zadania 9 potrzebujesz systemowego programu sleep i GDB. Zadanie 10 korzysta
+z `server.py`, który udostępnia `web/index.html`, `/health` i odpowiedzi 404.
+Serwer działa na stdlib Pythona i kończy się domyślnie po 900 sekundach.
+Nie wymaga Docker ani innych usług. Starsze pliki `io_demo.py` i `stdin.txt`
+zostają jako opcjonalny materiał; nie są częścią zadania 9.
 
 **Sprawdź dostępność narzędzi:**
 
@@ -62,255 +62,167 @@ Wszystkie własne wyniki zapisuj w ignorowanym `scratch/`.
 **Zadanie:** sprawdź narzędzia i zapisz w scratch/notatki.md środowisko oraz braki.
 **Zaliczenie:** [ ] wiesz, gdzie wykonujesz komendy i które narzędzia są dostępne.
 
-## 1. Proces i jego deskryptory: stdin, stdout, stderr
+## 1. Zadanie 9: uruchom sleep i sprawdź deskryptory
 
-**Cel:** rozumiesz `/proc/PID/fd`. Proces ma tabelę otwartych deskryptorów:
-0 zwykle stdin, 1 stdout, 2 stderr. Numer jest lokalny dla procesu: fd 1
-Twojego shella i fd 1 Pythona mogą wskazywać różne obiekty.
+**Cel:** otrzymać stan początkowy taki jak na obrazku. Sleep przez 1000 sekund
+czeka, niczego normalnie nie wypisując. Mimo to ma stdout — otwarty deskryptor 1.
 
-`/proc` to widok informacji jądra, nie zwykły katalog na dysku.
-Link `/proc/PID/fd/1` pokazuje cel stdout procesu PID: terminal `/dev/pts/...`,
-plik, potok `pipe:[...]` albo gniazdo `socket:[...]`.
+Każdy proces ma własną tabelę deskryptorów: 0 to zwykle stdin, 1 stdout, 2 stderr.
+`/proc/PID/fd` pokazuje je jako dowiązania. To widok informacji jądra, nie zwykłe
+pliki zapisane na dysku. `/dev/pts/N` oznacza pseudoterminal; N zależy od Twojej sesji.
 
-| Komenda | Jak działa i przydatne argumenty |
+| Polecenie | Co robi i przydatne argumenty |
 |---|---|
-| `sleep 1000 &` | Uruchamia pauzę w tle; proces istnieje, choć nic nie wypisuje. |
-| `PID=$!` | Zapamiętuje PID ostatniego zadania uruchomionego w tle w tym shellu. |
-| `ls -l /proc/PID/fd` | Długi format pokazuje cele dowiązań deskryptorów. |
-| `readlink /proc/PID/fd/1` | Wypisuje sam cel wskazanego dowiązania. |
-| `ps -p PID -o pid,etime,args` | Wybiera proces i kolumny: PID, czas życia, polecenie. |
+| `sleep 1000 &` | Uruchamia sleep w tle; 1000 to sekundy, & oddaje terminal. Bez początkowego przekierowania stdout pozostaje terminalem. |
+| `SLEEP_PID=$!` | Zapamiętuje PID ostatnio uruchomionego zadania w tle. Wpisz od razu po sleep. |
+| `ls -l /proc/PID/fd` | -l pokazuje szczegóły i cele dowiązań. |
+| `readlink /proc/PID/fd/1` | Wypisuje sam cel stdout. |
+| `ps -p PID -o pid,stat,etime,args` | Wybiera proces i kolumny: PID, stan, czas życia, polecenie. |
 
-W jednym terminalu:
-
-```bash
-python3 -u io_demo.py --ticks 300 --interval 1 &
-IO_PID=$!
-ls -l "/proc/$IO_PID/fd"
-readlink "/proc/$IO_PID/fd/1"
-ps -p "$IO_PID" -o pid,etime,args
-```
-
-`--ticks` to liczba kroków, `--interval` pauza między nimi. Program używa
-`os.write`, więc wynik nie czeka w buforze Pythona. W tle stdin może wskazywać
-terminal, ale jego czytanie podlega regułom kontroli zadań; tutaj nie włączamy czytania.
-
-**Zadania:**
-
-1. Odczytaj cele fd 0, 1 i 2. Zapisz je wraz z PID.
-2. Uruchom drugi proces, od początku przekierowany do dwóch plików.
-   Porównaj jego fd 1 i 2 z pierwszym procesem.
-3. Zakończ wyłącznie te dwa własne procesy po wykonaniu obserwacji.
-
-**Zaliczenie:** [ ] umiesz wskazać, gdzie idą stdout i stderr każdego procesu.
-To dział wprowadzający; zadanie 9 wymaga zmiany po starcie, czego tutaj jeszcze nie robimy.
-
-<details>
-<summary>Rozwiązanie</summary>
-
-```bash
-python3 -u io_demo.py --ticks 300 > scratch/start-out.log 2> scratch/start-err.log &
-SECOND_PID=$!
-ls -l "/proc/$SECOND_PID/fd"
-kill "$IO_PID" "$SECOND_PID"
-```
-
-Procesy mogły już skończyć, jeśli minęło 300 sekund. Nie zastępuj PID wzorcem
-`pkill python`, bo dotyczyłby też innych programów.
-
-</details>
-
-## 2. Zmień stdout działającego procesu przez GDB
-
-**Cel:** wykonać istotę zadania 9: ten sam PID, a nowy cel fd 1.
-Samo `echo tekst > /proc/PID/fd/1` zapisze tekst do aktualnego celu — **nie zmieni
-tabeli deskryptorów tego procesu**. Potrzebujesz operacji wewnątrz procesu.
-
-GDB pozwala zatrzymać proces i wywołać w nim funkcje libc:
-
-1. `open` otwiera plik w procesie i zwraca nowy deskryptor.
-2. `dup2(nowy, 1)` sprawia, że fd 1 wskazuje ten sam otwarty plik.
-3. `close(nowy)` zamyka dodatkowy numer; fd 1 pozostaje otwarty.
-
-Nie restartujesz procesu ani nie kończysz go podczas zmiany. Debugger **na chwilę
-zatrzymuje jego wykonanie**, a następnie je wznawia. To nie operacja bez pauzy.
-
-| Komenda GDB | Działanie |
-|---|---|
-| `run` | Uruchamia program pod kontrolą debuggera. |
-| `catch syscall NAZWY...` | Zatrzymuje przy wejściu do wskazanego wywołania systemowego i przy powrocie z niego. |
-| `disable 1` | Wyłącza punkt zatrzymania o numerze 1, aby program nie stawał na każdej następnej pauzie. |
-| Ctrl+C | W terminalu GDB zatrzymuje debugowany program do inspekcji. |
-| `info inferiors` | Pokazuje debugowane procesy i ich PID. |
-| `set $nazwa = ...` | Zapisuje wartość w zmiennej GDB; to nie zmienna Basha. |
-| `call (int)funkcja(...)` | Wywołuje funkcję wewnątrz debugowanego procesu; rzutowanie podaje typ wyniku, gdy brak symboli debugowania libc. |
-| `continue` | Wznawia proces pod kontrolą GDB. |
-| `detach` | Odłącza debugger i pozwala procesowi działać dalej samodzielnie. |
-| `quit` | Kończy GDB. Po detach nie kończy odłączonego procesu. |
-
-### Wariant podstawowy: GDB uruchamia proces
-
-Na Ubuntu z Yama `ptrace_scope=1` zwykłe dołączenie innego procesu do uruchomionego
-w shellu programu może być zabronione. GDB jako rodzic swojego procesu zwykle
-nie ma tego ograniczenia — dlatego uczymy się najpierw tego wariantu.
-
-Terminal A:
-
-```bash
-gdb -q --args python3 -u io_demo.py --ticks 600 --interval 1
-```
-
-Wpisuj poniższe **w GDB**, nie w Bash. Zatrzymamy program na końcu pierwszej
-pauzy. To bardziej powtarzalne miejsce do wykonywania funkcji niż wejście
-do wywołania systemowego. Na tym Ubuntu pauza Pythona używa pselect6,
-a w nowszych wersjach może korzystać z clock_nanosleep.
-
-```text
-catch syscall pselect6 clock_nanosleep
-run
-```
-
-Gdy zobaczysz `call to syscall ...`, wpisz `continue`. Gdy pojawi się
-`returned from syscall ...`, wyłącz catchpoint. W nowej sesji jest to numer 1;
-jeśli dodałeś inne punkty zatrzymania, numer odczytaj z komunikatu GDB.
-
-```text
-continue
-disable 1
-```
-
-Teraz wykonaj zmianę:
-
-```text
-info inferiors
-set $saved_stdout = (int)dup(1)
-print $saved_stdout
-set $out = (int)open("scratch/stdout-live.log", 1089, 0600)
-print $out
-```
-
-Oba deskryptory muszą być nieujemne. Przy -1 przerwij tę sekwencję i sprawdź
-ścieżkę/uprawnienia; nie wywołuj dup2 z niepoprawnym deskryptorem.
-`1089` to Linuxowe `O_WRONLY | O_CREAT | O_APPEND` (1 + 64 + 1024),
-`0600` to ósemkowe uprawnienia: odczyt i zapis dla właściciela nowego pliku.
-Istniejący plik zachowuje uprawnienia. Append dopisuje; nie kasuje starej zawartości.
-
-```text
-call (int)dup2($out, 1)
-call (int)close($out)
-continue
-```
-
-Dup2 ma zwrócić 1, close 0. Terminal A pokazuje teraz tylko stderr.
-Terminal B: podstaw PID wyświetlony przez info inferiors; nie kopiuj przykładowej liczby:
-
-```bash
-TARGET_PID=WPISZ_PID_Z_GDB
-ls -l "/proc/$TARGET_PID/fd"
-tail -f scratch/stdout-live.log
-```
-
-Po obserwacji Ctrl+C w terminalu B kończy tylko tail. W A Ctrl+C zatrzymuje
-program w GDB. Możesz przywrócić stdout:
-
-```text
-call (int)dup2($saved_stdout, 1)
-call (int)close($saved_stdout)
-detach
-quit
-```
-
-Program jest nadal tym samym procesem i działa po odłączeniu; zakończ go dopiero
-po zebraniu dowodów przez `kill "$TARGET_PID"` w B.
-
-**Zadania:** zapisz PID, cele fd przed/po oraz fragment dopisywanego pliku.
-Wyjaśnij kolejno open, dup2, close i różnicę między pauzą a restartem.
-**Zaliczenie:** [ ] PID nie zmienił się; fd 1 wskazuje plik; numery tick dalej rosną.
-
-<details>
-<summary>Wariant dokładnie jak na zrzucie: attach do sleep</summary>
+W **interaktywnym terminalu A**:
 
 ```bash
 sleep 1000 &
 SLEEP_PID=$!
+echo "$SLEEP_PID"
 ls -l "/proc/$SLEEP_PID/fd"
+ps -p "$SLEEP_PID" -o pid,stat,etime,args
+```
+
+Zobaczysz rzeczywisty PID — nie musi wynosić 4096 jak na zrzucie. Oczekiwany
+schemat dowiązań (numer terminala zależy od Twojego środowiska):
+
+```text
+0 -> /dev/pts/N
+1 -> /dev/pts/N
+2 -> /dev/pts/N
+```
+
+**Zadania:** zapisz PID i cele fd 0/1/2 do własnej notatki. Zachowaj ten sleep
+uruchomiony do końca działu 3. Nie wykonuj kill, nie uruchamiaj drugiego sleep
+jako zamiennika i nie dodawaj `> /tmp/foo` do polecenia startowego.
+
+**Zaliczenie:** [ ] istnieje Twój proces sleep 1000, a fd 1 początkowo wskazuje
+terminal. Powyższy stan zakłada normalny interaktywny shell; uruchomienie w skrypcie
+lub przez potok może dać inne cele fd 0/1/2.
+
+## 2. Zadanie 9: dołącz GDB i zmień stdout na /tmp/foo
+
+**Cel:** zmienić tabelę deskryptorów już działającego sleep. Zapis
+`echo tekst > /proc/PID/fd/1` tego nie robi: tylko zapisuje do obecnego celu.
+GDB wykona w procesie sleep trzy funkcje libc:
+
+1. `open` otworzy `/tmp/foo` i zwróci dodatkowy deskryptor.
+2. `dup2(nowy, 1)` podstawi otwarty plik pod numer 1, zamykając dotychczasowy fd 1.
+3. `close(nowy)` zamknie dodatkowy numer; kopia pod numerem 1 zostanie otwarta.
+
+Debugger na chwilę wstrzyma proces. Nie kończy go ani nie uruchamia ponownie.
+Nie zmieniamy fd 0 ani fd 2.
+
+### Krok A: dołącz do istniejącego procesu
+
+W tym samym terminalu A (zmienna SLEEP_PID nadal jest w jego shellu):
+
+```bash
 gdb -q -p "$SLEEP_PID"
 ```
 
-Jeśli ptrace_scope odrzuci dołączenie do Twojego własnego sleep, możesz użyć
-`sudo gdb -q -p "$SLEEP_PID"` na swoim hoście (wymaga administratora),
-albo ćwiczyć wariant z GDB jako rodzicem. Nie wyłączaj Yama przez sysctl.
-Ograniczenia kontenera/seccomp lub tryb Yama 3 mogą blokować także administratora.
+`-q` pomija baner, `-p` oznacza attach do podanego PID. **Nie wpisuj run** — run
+uruchamiałoby nowy program, a tu pracujesz na już istniejącym sleep.
 
-W GDB wykonaj otwarcie pliku/dup2/close jak wyżej, potem detach i quit.
-Sprawdź ponownie /proc. Sleep nie wypisuje danych, więc sam plik może pozostać
-pusty — dowodem jest cel fd 1 i niezmieniony PID. Kill dopiero kończy ćwiczenie.
-
-Przy błędach wywołań funkcji w GDB (np. zapis rejestrów, ptrace) zapisz pełny
-komunikat: nie deklaruj zmiany deskryptora, jeśli dup2 się nie udało.
-
-</details>
-
-## 3. Przekieruj także stderr i stdin po starcie
-
-**Cel:** uogólnić zmianę fd 1 na fd 2 i 0. To ćwiczenie dotyczy wyłącznie
-naszego jednowątkowego programu, który świadomie odczytuje deskryptor 0.
-Nie zakładaj takiego samego zachowania buforowanych strumieni dowolnej aplikacji.
-
-Terminal A: uruchom nowy proces przez GDB:
+Na Ubuntu Yama może blokować attach z osobnego procesu, mimo że sleep należy do
+Ciebie. Jeśli dostaniesz `ptrace: Operation not permitted`, wyjdź z GDB przez quit
+i dołącz do **tego samego, nadal działającego sleep**:
 
 ```bash
-gdb -q --args python3 -u io_demo.py --read-input --ticks 600 --interval 1
+sudo gdb -q -p "$SLEEP_PID"
 ```
 
-W nowej sesji GDB powtórz `catch syscall pselect6 clock_nanosleep`, `run`,
-`continue` do komunikatu returned from syscall, następnie `disable 1`, jak
-w dziale 2. Teraz:
+Ten wariant wymaga uprawnień administratora i hasła. Nie zmieniaj ptrace_scope
+przez sysctl. Kontener/seccomp lub bardziej restrykcyjna polityka mogą blokować
+attach również z sudo — wtedy wykonaj ćwiczenie na swoim hoście/VM.
+
+### Krok B: otwórz plik wewnątrz sleep
+
+Poniższe wpisujesz **w GDB**, nie w Bash:
 
 ```text
-set $err = (int)open("scratch/stderr-live.log", 1089, 0600)
-print $err
-```
-
-Jeśli wynik >= 0:
-
-```text
-call (int)dup2($err, 2)
-call (int)close($err)
-set $in = (int)open("stdin.txt", 0)
-print $in
-```
-
-Drugi argument open równy 0 to `O_RDONLY` — tylko odczyt. Jeśli wynik >= 0:
-
-```text
-call (int)dup2($in, 0)
-call (int)close($in)
 info inferiors
-continue
+set $out = (int)open("/tmp/foo", 1089, 0600)
+print $out
+```
+
+| Element | Znaczenie |
+|---|---|
+| `info inferiors` | Pokazuje debugowany proces; PID ma zgadzać się z SLEEP_PID. |
+| `set $out = ...` | Zmienna samego GDB, nie Basha. Zapamiętuje deskryptor zwrócony przez open. |
+| `(int)` | Podaje GDB typ wyniku, potrzebny przy braku symboli debugowania funkcji libc. |
+| `1089` | Linuxowe flagi `O_WRONLY | O_CREAT | O_APPEND`: 1 + 64 + 1024. Otwórz do zapisu, utwórz jeśli brak, dopisuj. |
+| `0600` | Ósemkowe uprawnienia dla nowego pliku: odczyt/zapis właściciela. Istniejący plik zachowuje dotychczasowe uprawnienia. |
+
+**Sprawdź wynik.** Nieujemny numer, np. 3, oznacza sukces. Przy -1 nie wykonuj
+kolejnego kroku; sprawdź uprawnienia i komunikat. Użycie sudo może utworzyć plik
+będący własnością procesu sleep — open wykonuje się w sleep, nie w samym GDB.
+Wybrano dopisywanie, aby nie zerować ewentualnej istniejącej zawartości `/tmp/foo`.
+
+### Krok C: podmień fd 1 i odłącz debugger
+
+```text
+call (int)dup2($out, 1)
+call (int)close($out)
+detach
+quit
+```
+
+| Komenda | Oczekiwany wynik i znaczenie |
+|---|---|
+| `call (int)dup2($out, 1)` | Wynik 1: stdout wskazuje już otwarty plik. Przy -1 nie deklaruj sukcesu. |
+| `call (int)close($out)` | Wynik 0: zamknięty dodatkowy deskryptor; fd 1 nadal wskazuje plik. |
+| `detach` | Wznawia i odłącza istniejący sleep; PID się nie zmienia. |
+| `quit` | Zamyka GDB; po detach nie kończy procesu sleep. |
+
+Nie potrzebujesz continue przed detach — detach sam pozwala procesowi działać
+samodzielnie. Nie używaj w GDB polecenia kill. Przy błędach wywołania funkcji,
+ptrace lub rejestrów zachowaj pełny komunikat i sprawdź stan procesu; sam exit 0
+programu gdb nie dowodzi sukcesu zmiany.
+
+**Zadania:** wykonaj kroki A–C na sleep z działu 1 i zapisz wyniki open, dup2, close.
+**Zaliczenie:** [ ] debugger odłączył się od tego samego procesu bez jego restartu.
+Ostateczny dowód sprawdzisz w kolejnym dziale.
+
+## 3. Zadanie 9: porównaj /proc przed i po
+
+W terminalu A, po wyjściu z GDB:
+
+```bash
+ls -l "/proc/$SLEEP_PID/fd"
+readlink "/proc/$SLEEP_PID/fd/1"
+ps -p "$SLEEP_PID" -o pid,stat,etime,args
+```
+
+**Oczekiwany schemat dokładnie jak na obrazku:**
+
+```text
+0 -> /dev/pts/N
+1 -> /tmp/foo
+2 -> /dev/pts/N
 ```
 
 **Zadania:**
 
-1. Sprawdź w B cele 0 i 2 w /proc procesu oraz zawartość nowego stderr.
-2. Znajdź na stdout komunikat `stdin: b'...'` z fragmentem prawdziwego stdin.txt.
-   Program czyta do 64 bajtów na krok, więc treść może pojawić się w częściach.
-3. Po obserwacji odłącz GDB (Ctrl+C, detach, quit) i zakończ własny proces po PID.
-
-**Zaliczenie:** [ ] ten sam PID czyta dane z pliku i pisze stderr do nowego pliku.
-Przy końcu stdin czytanie zwraca zero bajtów; nasz program mimo tego kontynuuje kroki.
-
-<details>
-<summary>Sprawdzenie</summary>
+1. Porównaj z pierwszym ls: fd 1 ma nowy cel, a 0 i 2 pozostały bez zmian.
+2. Potwierdź, że ps pokazuje ten sam PID i polecenie sleep 1000.
+3. Wyjaśnij, dlaczego plik /tmp/foo może mieć rozmiar zero.
+4. Dopiero po zapisaniu dowodów zakończ własny sleep:
 
 ```bash
-ls -l "/proc/$TARGET_PID/fd"
-tail scratch/stderr-live.log
+kill "$SLEEP_PID"
 ```
 
-Ustaw TARGET_PID na PID tego nowego procesu. Wynik dup2 powinien być odpowiednio
-2 i 0. STDOUT nadal trafia do terminala; dopiero osobna zmiana fd 1 zmieni jego cel.
-
-</details>
+**Zaliczenie:** [ ] ten sam sleep, fd 1 → /tmp/foo, bez kończenia procesu podczas
+zmiany. Sleep normalnie niczego nie wypisuje — **pusty plik jest poprawnym wynikiem**.
+Nie trzeba tworzyć sztucznych komunikatów ani używać tail -f. Nie usuwaj /tmp/foo,
+jeśli istniał przed Twoim ćwiczeniem; wynik zadania to przede wszystkim dowiązania /proc.
 
 ## 4. IP, interfejs, port, klient i serwer
 
@@ -424,25 +336,6 @@ wyjaśnij trzy stany ze zrzutu i odnotuj, czy rzeczywiście widziałeś SYN-SENT
 SYN-SENT nie jest błędem. TIME-WAIT zależy od strony i sposobu zamknięcia;
 sprawdzaj go od razu po normalnym żądaniu z Connection: close, nie po zabiciu nc.
 
-<details>
-<summary>Wariant port 80 z publiczną stroną</summary>
-
-Po zakończeniu lokalnej próby uruchom przechwytywanie i klienta w osobnych oknach:
-
-```bash
-sudo tcpdump -i any -nn -S 'tcp port 80 and host neverssl.com'
-```
-
-```bash
-nc -4 -v -w 10 neverssl.com 80
-```
-
-Filtr rozwiązuje domenę przy starcie; domena może mieć kilka adresów, które
-zmieniają się w czasie. W razie braku zgodnego ruchu porównaj adres nc z filtrem.
-Zatrzymaj capture po własnej próbie. Dalej wyślij GET z Host: neverssl.com.
-
-</details>
-
 ## 6. Ręczna rozmowa HTTP: nc, GET, Host i curl
 
 **Cel:** zobaczyć, że HTTP/1.1 jest tekstowym protokołem ponad TCP.
@@ -490,7 +383,7 @@ Connection: close
 **Zaliczenie:** [ ] odróżniasz HTTP od TCP; masz GET/200, GET/404 i porównanie curl.
 
 <details>
-<summary>Rozwiązanie i publiczny wariant</summary>
+<summary>Rozwiązanie na lokalnym serwerze</summary>
 
 ```bash
 printf 'GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n' | nc -N -w 5 127.0.0.1 8080 | tee scratch/http-nc.txt
@@ -502,76 +395,82 @@ curl --noproxy '*' -i http://127.0.0.1:8080/nie-ma
 Polecenie curl może mieć kod 0 także dla HTTP 404: sam transfer się udał.
 Opcja -f powoduje niezerowy kod dla odpowiedzi HTTP od 400.
 
-```bash
-printf 'GET / HTTP/1.1\r\nHost: neverssl.com\r\nConnection: close\r\n\r\n' | nc -N -w 10 neverssl.com 80
-curl --noproxy '*' --http1.1 --max-time 15 -v http://neverssl.com/
-```
-
-Jeśli sieć wymaga proxy lub blokuje port 80, lokalna część nadal działa.
-Https na 443 wymaga TLS: samo nc nie zastępuje klienta TLS.
+Do tego zadania nie łączysz się z publiczną stroną. Lokalny serwer używa zwykłego
+HTTP na 8080, więc nie potrzebujesz TLS ani portu 80. Nazwa localhost zwykle
+rozwiązuje się do loopback; adres 127.0.0.1 wymusza używany tutaj wariant IPv4.
 
 </details>
 
-## 7. DNS: hosts, resolv.conf, systemd-resolved i dig
+## 7. DNS i localhost: hosts, resolv.conf, dig
 
-**Cel:** rozumiesz, jak nazwa neverssl.com zamienia się w adres IP.
-DNS nie jest wymagany, gdy łączysz się bezpośrednio z 127.0.0.1.
+**Cel:** zrozumieć różnicę między nazwą localhost a adresem 127.0.0.1.
+Wszystkie żądania HTTP nadal kierujesz do własnego serwera. Adres liczbowy omija
+rozwiązywanie nazwy; localhost jest nazwą specjalną wskazującą loopback.
 
 | Plik / narzędzie | Rola |
 |---|---|
-| `/etc/hosts` | Lokalne przypisania nazw do adresów. Nie jest globalną bazą DNS. |
-| `/etc/nsswitch.conf`, wpis hosts | Kolejność źródeł rozwiązywania nazw w systemie (np. files, dns, resolve). |
-| `/etc/resolv.conf` | Konfiguracja resolvera: m.in. nameserver i search. Często dowiązanie do pliku zarządzanego przez usługę. |
-| `systemd-resolved` | Lokalna usługa resolvera, może mieć cache i DNS osobno na interfejsach. 127.0.0.53 zwykle oznacza lokalny stub, nie publiczny serwer upstream. Nie każdy system jej używa. |
-| `getent ahostsv4 nazwa` | Rozwiązuje nazwę przez systemową konfigurację NSS; może uwzględnić hosts. |
-| `dig nazwa A` | Pyta DNS o rekord A (IPv4). Dig sam nie interpretuje hosts jako źródła rekordów, ale może pytać resolver, który je uwzględnia. |
+| `/etc/hosts` | Lokalne przypisania nazw do adresów, np. 127.0.0.1 localhost. Nie jest globalną bazą DNS. |
+| `/etc/nsswitch.conf`, wpis hosts | Określa źródła i kolejność systemowego rozwiązywania nazw, np. files, dns, resolve. |
+| `/etc/resolv.conf` | Konfiguracja resolvera DNS, m.in. nameserver. Może być dowiązaniem zarządzanym przez usługę. |
+| `systemd-resolved` | Lokalna usługa resolvera; na Ubuntu stub często słucha na 127.0.0.53. Może syntetyzować odpowiedź localhost. Nie każdy system używa tej usługi. |
+| `getent ahostsv4 localhost` | Rozwiązuje nazwę przez systemowe NSS, uwzględniając jego źródła, np. hosts. |
+| `dig @127.0.0.53 localhost A` | Jawne zapytanie DNS do lokalnego stuba. Działa tylko, jeśli taki resolver jest uruchomiony. Dig nie odczytuje hosts samodzielnie. |
 
-**Rekurencja:** klient prosi resolver „daj końcowy wynik”, a resolver korzysta
-z cache lub sam odpytuje potrzebne serwery. **Iteracja:** pytający dostaje
-odsyłacz do kolejnego serwera i sam kontynuuje, np. root → .com → autorytatywny.
-Dig +trace wykonuje takie kolejne zapytania; to nie pomiar trasy pakietów jak traceroute.
+**Ważna granica ćwiczenia:** localhost nie ma zwykłej publicznej delegacji.
+Nie da się uczciwie pokazać dla niego globalnego łańcucha root → TLD → domena.
+Dlatego `dig +trace` omawiamy tutaj, ale nie wykonujemy zapytań do publicznych
+serwerów DNS. Lokalny serwer HTTP na 8080 nie jest serwerem DNS; nie kieruj dig
+na jego port. To świadome dostosowanie punktu DNS ze zrzutu do Twojego lokalnego labu.
+
+**Rekurencja:** klient prosi resolver o końcową odpowiedź, a resolver korzysta
+z cache lub odpytuje inne serwery. **Iteracja:** pytający dostaje odsyłacze
+i sam odpytuje kolejne poziomy. `dig +trace nazwa` realizuje taki łańcuch dla
+nazwy z rzeczywistymi delegacjami. Nie jest to traceroute i nie pokazuje tras IP.
+Szybka lokalna odpowiedź localhost nie jest dowodem takiej rekurencji ani iteracji.
 
 | Argument dig | Znaczenie |
 |---|---|
-| `A`, `AAAA`, `NS` | Typ: adres IPv4, IPv6, serwery nazw. |
-| `+short` | Skrócony wynik; wygodny, ale ukrywa diagnostykę. |
-| `@SERWER` | Wybiera konkretny serwer DNS, zamiast domyślnego z konfiguracji. |
-| `+trace` | Śledzi delegacje zapytaniami iteracyjnymi od korzenia. |
-| `-4`, `+nodnssec` | Tylko transport IPv4; pominięcie prośby o dodatkowe rekordy DNSSEC, aby uprościć widok ćwiczenia. Nie jest to test poprawności podpisów DNSSEC. |
-| `+norecurse` | Nie prosi danego serwera o rekurencję; samo w sobie nie odtwarza całego +trace. |
-| `+time=2 +tries=1` | Ogranicza czekanie i ponawianie zapytań; całe +trace może nadal obejmować wiele kroków. |
+| `@SERWER` | Wybiera serwer DNS; tu jawnie lokalny adres, aby nie pytać publicznego resolvera. |
+| `A`, `AAAA` | Typ rekordu: IPv4 lub IPv6. |
+| `+short` | Krótki wynik bez większości diagnostyki. |
+| `+norecurse` | Nie prosi resolvera o rekurencję; nie zmienia zapytania w pełny +trace. |
+| `+time=2 +tries=1` | Ogranicza czekanie i ponawianie próby. |
 
 **Zadania:**
 
-1. Odczytaj hosts, cel resolv.conf, wpis hosts z nsswitch oraz nameserver.
-2. Sprawdź systemd-resolved poleceniem resolvectl status, jeśli jest dostępne.
-3. Zapytaj dig o neverssl.com A; odczytaj ANSWER, SERVER i flagi rd/ra.
-   Rd oznacza żądanie rekurencji, ra dostępność rekurencji; nie dowodzą cache miss.
-4. Zapisz dig +trace i wskaż poziomy delegacji albo pełny komunikat blokady.
-5. Porównaj getent localhost z dig localhost. Wyjaśnij, czemu mogą się różnić.
+1. Odczytaj hosts, cel resolv.conf i wpis hosts z nsswitch.
+2. Sprawdź getent localhost i porównaj z liczbowym URL.
+3. Jeśli systemd-resolved działa na 127.0.0.53, zapytaj ten lokalny adres o localhost.
+   Odczytaj ANSWER i SERVER. Przy braku lokalnego resolvera zapisz to ograniczenie;
+   nie podstawiaj publicznego DNS i nie zmieniaj konfiguracji systemu.
+4. Porównaj odpowiedzi A i AAAA. Nasz serwer nasłuchuje tylko na 127.0.0.1,
+   więc IPv6 ::1 nie jest jego adresem nasłuchu; curl -4 wybiera IPv4.
+5. Wyjaśnij rekurencję, iterację i dlaczego +trace localhost nie realizuje
+   publicznego łańcucha delegacji.
 
-**Zaliczenie:** [ ] rozróżniasz NSS od zapytania DNS oraz rekurencję od iteracji.
-Port 53 do zewnętrznych serwerów może być blokowany: wtedy działający zwykły dig
-nie gwarantuje działającego +trace. Nie zmieniaj hosts/resolv.conf do tych ćwiczeń.
+**Zaliczenie:** [ ] rozróżniasz NSS od DNS i wyjaśniasz wyjątkowość localhost.
+Brak lokalnego serwera DNS nie przeszkadza w ćwiczeniach HTTP po 127.0.0.1.
+Nie opisuj części teoretycznej +trace jako wykonanego pomiaru.
 
 <details>
-<summary>Rozwiązanie</summary>
+<summary>Rozwiązanie lokalne</summary>
 
 ```bash
 cat /etc/hosts
 readlink -f /etc/resolv.conf
 cat /etc/resolv.conf
 grep '^hosts:' /etc/nsswitch.conf
-resolvectl status
-dig neverssl.com A +time=2 +tries=1
-dig neverssl.com A +short
-dig -4 +trace neverssl.com A +nodnssec +time=2 +tries=1 | tee scratch/dns-trace.txt
 getent ahostsv4 localhost
-dig localhost A +time=2 +tries=1
+resolvectl status
+dig @127.0.0.53 localhost A +time=2 +tries=1
+dig @127.0.0.53 localhost AAAA +time=2 +tries=1
+curl --noproxy '*' -4 --max-time 5 http://localhost:8080/health
+curl --noproxy '*' --max-time 5 http://127.0.0.1:8080/health
 ```
 
-Rekordy/adresy zmieniają się w czasie — zapisuj własne wyniki, nie oczekuj jednej
-stałej liczby. Brak resolvectl/usługi w kontenerze też jest poprawną obserwacją.
+Brak resolvectl/usługi lokalnej jest poprawną obserwacją. Dig wykonaj wyłącznie
+po potwierdzeniu dostępności lokalnego resolvera; w innych środowiskach jego adres
+może być inny. Sam getent nie musi wygenerować żadnego pakietu DNS.
 
 </details>
 
@@ -602,7 +501,8 @@ strace -f -s 256 -yy -o scratch/curl-network.trace -e trace=network curl --nopro
 1. Znajdź socket, connect oraz sendto/recvfrom, jeśli występują.
 2. Zidentyfikuj adres/port connect i bufor zawierający GET albo odpowiedź.
 3. Powtórz z filtrem network,read,write,close. Dlaczego pokazuje więcej?
-4. Powtórz dla neverssl.com, jeśli masz sieć. Oddziel połączenia DNS od HTTP.
+4. Powtórz dla http://localhost:8080/health z curl -4. Porównaj z liczbowym
+   adresem: rozwiązywanie localhost może skończyć się lokalnie, bez pakietu DNS.
 
 | Wywołanie | Związek z rozmową |
 |---|---|
@@ -624,7 +524,7 @@ Nie dopisuj brakującego recvfrom do raportu — wskaż rzeczywiście użyte rea
 ```bash
 grep -E 'socket\(|connect\(|sendto\(|recvfrom\(' scratch/curl-network.trace
 strace -f -s 256 -yy -o scratch/curl-full.trace -e trace=network,read,write,close curl --noproxy '*' --http1.1 --max-time 5 http://127.0.0.1:8080/health
-strace -f -s 256 -yy -o scratch/public-network.trace -e trace=network curl --noproxy '*' --http1.1 --max-time 15 http://neverssl.com/
+strace -f -s 256 -yy -o scratch/localhost-network.trace -e trace=network curl --noproxy '*' -4 --http1.1 --max-time 5 http://localhost:8080/health
 ```
 
 Adres IP lokalnego URL omija DNS, ale biblioteka może dodatkowo sprawdzać lokalne
@@ -731,8 +631,8 @@ Nie wpisuj, że zobaczyłeś stan/wywołanie, którego nie ma w Twoich pomiarach
 Zapisy packet capture lub konfiguracji zostaw lokalnie w scratch/.
 
 **Sprzątanie:** zakończ nc i tcpdump przez Ctrl+C w ich terminalach, serwer
-przez Ctrl+C w A. Proces odłączony od GDB zakończ dopiero po dowodzie zmiany,
-używając jego zapisanego PID. Sprawdź ss, czy Twój serwer już nie nasłuchuje.
+przez Ctrl+C w A. Sleep odłączony od GDB zakończ dopiero po dowodzie zmiany,
+używając zapisanego SLEEP_PID (jeśli jeszcze działa po dziale 3). Sprawdź ss, czy Twój serwer już nie nasłuchuje.
 Nie kończ innych usług systemowych.
 
 **Zaliczenie:** [ ] raport opisuje wszystkie punkty zrzutu i uczciwie podaje
@@ -760,8 +660,7 @@ python3 -m unittest discover -s tests -v
 
 To sprawdza programy laboratoryjne, nie zalicza za Ciebie zadań GDB/tcpdump/DNS.
 
-Podczas przygotowania (2026-11-06) przeszło 9 testów, sprawdzono GDB ze zmianą
-fd 0/1/2 w tym samym PID, lokalne nc/curl/strace, LISTEN/ESTABLISHED/TIME-WAIT,
-powiązanie inode z /proc, publiczne HTTP, zapytanie DNS i pełne dig +trace.
-Utworzono także PDF dokumentacji ps i ss. Przechwytywanie pakietów tcpdump
-pozostaje do ręcznego wykonania — na tym hoście sudo wymaga hasła administratora.
+Programy laboratoryjne mają 9 testów. Nie zastępują one wykonania attach do sleep
+z zadania 9. Przechwytywanie tcpdump oraz attach wymagający sudo wykonujesz ręcznie,
+jeśli system wymaga hasła administratora. HTTP i pomiary TCP korzystają wyłącznie
+z lokalnego serwera; część +trace to wyjaśnienie ograniczenia localhost.
