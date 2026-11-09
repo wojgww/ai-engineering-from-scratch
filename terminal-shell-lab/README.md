@@ -512,214 +512,94 @@ w obu komendach. Du -h zaokrągla, więc przy małych modelach możliwe są remi
 
 </details>
 
-## 8. SSH i transfer plików na własny serwer · 30–45 minut
+## 8. SSH i kopiowanie pliku na własny serwer · 10 minut
 
-**Cel:** łączysz się z własnym serwerem, wysyłasz rzeczywisty CSV z labu,
-odbierasz jego kopię i synchronizujesz katalog. Na końcu możesz przećwiczyć tunel.
-Wszystkie polecenia, poza wyraźnie opisanymi, wpisujesz **lokalnie w katalogu labu**.
-Nie potrzebujesz sudo ani zmian w usługach serwera. Użyj konta, którym już się logujesz.
+**Cel:** połączysz się z serwerem, wyślesz jeden plik, pobierzesz go i sprawdzisz
+zgodność. Zakładamy, że masz już działający dostęp SSH; konfiguracja konta/kluczy
+nie wchodzi w te 10 minut. Wszystkie komendy startujesz **lokalnie w katalogu labu**.
 
-### 8.1. Przygotuj połączenie
+**Komendy, które poznasz:**
 
-Potrzebujesz adresu serwera, loginu, portu SSH i działającej metody logowania.
-Skorzystaj ze swojego istniejącego klucza lub hasła; nie generuj nowego klucza,
-jeśli masz już działający dostęp. Rsync musi być zainstalowany po obu stronach.
-
-Utwórz `scratch/course/ssh-config`, zastępując adres i login swoimi wartościami.
-Jeśli port jest inny niż 22, zmień także Port. Plik jest lokalny i ignorowany przez Git.
-Nie wpisuj do niego hasła ani treści klucza prywatnego.
-
-```text
-Host kurs-server
-    HostName ADRES_TWOJEGO_SERWERA
-    User TWOJ_LOGIN
-    Port 22
-    # Jeśli korzystasz z konkretnego klucza, odkomentuj i popraw ścieżkę:
-    # IdentityFile ~/.ssh/twoj_klucz
-```
-
-`kurs-server` to lokalny alias — nie nazwa, którą musisz ustawiać na serwerze.
-Opcja `-F` wybiera ten plik zamiast standardowego ~/.ssh/config. Dlatego przenieś
-też potrzebne ustawienia działającego połączenia, np. klucz, ProxyJump lub inny port.
-Klucz z domyślnej ścieżki lub ssh-agent może zostać znaleziony automatycznie.
-Przy pierwszym połączeniu sprawdź odcisk klucza hosta na podstawie panelu dostawcy
-lub zaufanej informacji o swoim serwerze. Nie wyłączaj jego weryfikacji.
-
-**Jak działają komendy i argumenty:**
-
-| Komenda / składnia | Działanie i przydatne opcje |
+| Komenda | Jak działa i przydatne argumenty |
 |---|---|
-| `ssh -F PLIK ALIAS [komenda]` | Łączy się według konfiguracji. Bez komendy otwiera zdalny shell; z komendą wykonuje ją zdalnie i kończy połączenie. |
-| `ssh -i KLUCZ -p PORT USER@HOST` | Jawne wskazanie klucza i portu, jeśli nie korzystasz z aliasu. |
-| `ssh -G -F PLIK ALIAS` | Pokazuje rozwiniętą konfigurację bez łączenia. Nie potwierdza działania klucza ani serwera. |
-| `ssh -v ...` | Pokazuje diagnostykę połączenia; przydatne przy błędzie uwierzytelnienia. |
-| `scp -F PLIK źródło cel` | Kopiuje plik. `ALIAS:ścieżka` oznacza stronę zdalną; bez dwukropka ścieżka jest lokalna. |
-| `scp -P PORT -i KLUCZ ...` | Port podaje się dużym -P, inaczej niż w ssh. -r kopiuje katalogi. |
-| `rsync -avzi -e 'ssh -F PLIK' źródło cel` | Synchronizuje przez wskazane SSH: -a zachowuje strukturę i metadane, -v opisuje pracę, -z kompresuje, -i wypisuje zmiany. -n dodaje symulację bez zapisu. |
-| `ssh -N -L LOKALNY_ADRES:PORT:ZDALNY_ADRES:PORT ...` | Tworzy tunel; -N nie otwiera zdalnej powłoki. Opcja -o ExitOnForwardFailure=yes kończy SSH, jeśli nie uda się utworzyć przekierowania. |
+| `ssh -p PORT HOST` | Otwiera zdalny shell. HOST to login@adres lub działający alias z ~/.ssh/config. `exit` wraca do lokalnego terminala. |
+| `ssh -p PORT HOST 'komenda'` | Wykonuje jedną komendę zdalnie i od razu wraca. Cudzysłowy chronią treść przed lokalnym shellem. |
+| `scp -P PORT źródło cel` | Kopiuje plik; `HOST:ścieżka` oznacza stronę zdalną. Uwaga: port w scp to duże -P, w ssh małe -p. |
+| `diff plik1 plik2` | Porównuje treść; brak wyniku i kod 0 oznaczają zgodność. |
 
-**Zadania:**
+Jeśli Twoje działające połączenie wymaga `-i ~/.ssh/klucz`, dodaj tę opcję do ssh
+oraz scp. Jeśli używasz aliasu z konfiguracji, wpisz alias jako COURSE_HOST i jego
+właściwy port jako COURSE_PORT. Korzystasz z istniejącej metody logowania.
 
-1. Przygotuj plik konfiguracji i sprawdź hostname, user oraz port przez ssh -G.
-2. Połącz się interaktywnie. W zdalnym shellu wykonaj `hostname`, `whoami`, `pwd`,
-   a potem `exit`, aby wrócić do lokalnego terminala.
-3. Sprawdź dostępność rsync lokalnie oraz zdalnie. Jeśli brakuje go na serwerze,
-   zadania scp nadal są wykonalne; instalację rsync wykonaj oddzielnie świadomie.
+### 8.1. Połącz się · 3 minuty
 
-**Sprawdzenie:** [ ] potrafisz rozpoznać lokalny i zdalny terminal oraz wrócić przez exit.
-
-<details>
-<summary>Rozwiązanie: konfiguracja i pierwsze połączenie</summary>
+**Zadanie:** ustaw adres i port, połącz się, sprawdź zdalne hostname i pwd,
+następnie wróć przez exit. Zastąp login/adres własnymi wartościami.
 
 ```bash
-mkdir -p scratch/course
+COURSE_HOST='TWOJ_LOGIN@ADRES_SERWERA'
+COURSE_PORT=22
+ssh -p "$COURSE_PORT" "$COURSE_HOST"
 ```
 
-Zapisz powyższą konfigurację w edytorze jako scratch/course/ssh-config, a następnie:
-
-```bash
-chmod 600 scratch/course/ssh-config
-ssh -G -F scratch/course/ssh-config kurs-server | grep -E '^(hostname|user|port|identityfile) '
-ssh -F scratch/course/ssh-config kurs-server
-```
-
-Poniższe trzy komendy wykonaj **na serwerze**, następnie wróć przez exit:
+Teraz **na serwerze**:
 
 ```bash
 hostname
-whoami
 pwd
 exit
 ```
 
-Znowu lokalnie:
+### 8.2. Wyślij plik · 3 minuty
 
-```bash
-command -v rsync
-ssh -F scratch/course/ssh-config kurs-server 'command -v rsync'
-```
-
-`chmod 600` daje odczyt i zapis tylko właścicielowi pliku.
-Pojedyncze cudzysłowy wokół komendy zdalnej chronią jej treść przed lokalnym shellem.
-
-</details>
-
-### 8.2. Wyślij CSV i pobierz go z powrotem
-
-Pracuj dalej w **tym samym lokalnym terminalu**. Utworzysz osobny katalog
-ćwiczenia w katalogu domowym konta na serwerze. Nazwa z datą oddziela kolejne próby.
-Ścieżka po dwukropku jest względna do zdalnego katalogu domowego.
-
-**Zadania:**
-
-1. Ustaw REMOTE_DIR z datą i utwórz zdalnie podkatalogi incoming oraz synced.
-2. Wyślij `data/lessons.csv` przez scp do incoming/lessons.csv.
-3. Pobierz go pod lokalną nazwą scratch/course/from-server.csv.
-4. Porównaj kopię przez diff; potwierdź zgodność także przez sha256sum.
-5. Wyjaśnij, dlaczego zamiana źródła i celu odwraca kierunek transferu.
-
-<details>
-<summary>Rozwiązanie: scp w obie strony</summary>
+**Zadanie:** w tym samym lokalnym terminalu utwórz na serwerze katalog ćwiczenia
+z datą i prześlij do niego prawdziwy `data/lessons.csv`.
 
 ```bash
 REMOTE_DIR="shell-course/$(date +%Y%m%d-%H%M%S)"
-echo "$REMOTE_DIR"
-ssh -F scratch/course/ssh-config kurs-server "mkdir -p '$REMOTE_DIR/incoming' '$REMOTE_DIR/synced'"
-scp -F scratch/course/ssh-config data/lessons.csv "kurs-server:$REMOTE_DIR/incoming/lessons.csv"
-scp -F scratch/course/ssh-config "kurs-server:$REMOTE_DIR/incoming/lessons.csv" scratch/course/from-server.csv
+ssh -p "$COURSE_PORT" "$COURSE_HOST" "mkdir -p '$REMOTE_DIR'"
+scp -P "$COURSE_PORT" data/lessons.csv "$COURSE_HOST:$REMOTE_DIR/lessons.csv"
+```
+
+Ścieżka zdalna jest względna do katalogu domowego konta na serwerze. Nazwa z datą
+oddziela kolejne próby. W tym poleceniu scp lokalny plik jest źródłem.
+
+### 8.3. Pobierz i porównaj · 2 minuty
+
+**Zadanie:** pobierz przesłany plik pod inną lokalną nazwą i porównaj go z oryginałem.
+
+```bash
+mkdir -p scratch/course
+scp -P "$COURSE_PORT" "$COURSE_HOST:$REMOTE_DIR/lessons.csv" scratch/course/from-server.csv
 diff data/lessons.csv scratch/course/from-server.csv
-sha256sum data/lessons.csv scratch/course/from-server.csv
 ```
 
-Diff bez wyniku oznacza identyczne pliki. Obie sumy SHA-256 powinny być takie same.
-Jeśli otworzysz nowy terminal, odtwórz REMOTE_DIR z zapisanego wyniku echo — nie
-ustawiaj nowej daty, jeśli chcesz kontynuować na tych samych zdalnych plikach.
-Podwójne cudzysłowy pozwalają lokalnie rozwinąć kontrolowaną nazwę REMOTE_DIR.
+Teraz źródło jest zdalne, a cel lokalny. Używaj tego samego terminala, żeby
+zachować wartości COURSE_HOST, COURSE_PORT i REMOTE_DIR. Przy ponownym pobraniu
+plik from-server.csv zostanie nadpisany.
 
-</details>
+### 8.4. Sprawdź zrozumienie · 2 minuty
 
-### 8.3. Synchronizuj katalog zamiast pojedynczego pliku
+Bez zaglądania wyjaśnij:
 
-**Zadania:**
-
-1. Przygotuj własny katalog scratch/course/ssh-upload z kopiami lessons.csv i source.json.
-2. Obejrzyj plan synchronizacji do zdalnego synced/ przez rsync -n.
-3. Wykonaj synchronizację, a potem uruchom ją ponownie. Zobacz, czy pliki są ponownie przesyłane.
-4. Dodaj lokalną notatkę w ssh-upload, ponów synchronizację i potwierdź jej treść na serwerze.
-5. Wyjaśnij znaczenie końcowego / w ścieżce źródłowej.
+1. Po czym rozpoznajesz zdalną ścieżkę w scp?
+2. Jak zmienić wysyłanie na pobieranie?
+3. Dlaczego port zapisujesz jako -p w ssh, ale -P w scp?
+4. Co oznacza brak wyniku diff?
 
 <details>
-<summary>Rozwiązanie: rsync i zmiana jednego pliku</summary>
+<summary>Odpowiedzi</summary>
 
-```bash
-mkdir -p scratch/course/ssh-upload
-cp data/lessons.csv data/source.json scratch/course/ssh-upload/
-rsync -avzin -e 'ssh -F scratch/course/ssh-config' scratch/course/ssh-upload/ "kurs-server:$REMOTE_DIR/synced/"
-rsync -avzi -e 'ssh -F scratch/course/ssh-config' scratch/course/ssh-upload/ "kurs-server:$REMOTE_DIR/synced/"
-rsync -avzi -e 'ssh -F scratch/course/ssh-config' scratch/course/ssh-upload/ "kurs-server:$REMOTE_DIR/synced/"
-echo 'Notatka z kursu SSH' > scratch/course/ssh-upload/notatka.txt
-rsync -avzi -e 'ssh -F scratch/course/ssh-config' scratch/course/ssh-upload/ "kurs-server:$REMOTE_DIR/synced/"
-ssh -F scratch/course/ssh-config kurs-server "cat '$REMOTE_DIR/synced/notatka.txt'"
-```
-
-Pierwsza komenda rsync to tylko symulacja. Drugie rzeczywiste uruchomienie
-bez zmiany plików zwykle nie przesyła ich ponownie. Rsync domyślnie sprawdza
-rozmiary/czasy, a -i opisuje wykryte zmiany. Źródłowe ssh-upload/ oznacza jego
-zawartość. Nie potrzebujesz --delete; nie usuwaj innych katalogów serwera.
+Zdalna ścieżka ma przedrostek HOST:; kierunek zmienia zamiana źródła i celu.
+Ssh i scp mają różne opcje: -p oraz -P wybierają port w odpowiednim programie.
+Diff bez wyniku i z kodem 0 potwierdza identyczną treść plików.
 
 </details>
 
-### 8.4. Opcjonalnie: tunel SSH do własnej usługi
-
-**Cel:** pobrać dane z serwera HTTP, który nasłuchuje wyłącznie na loopback
-serwera, bez otwierania jego portu HTTP w firewallu. Wymagane Python 3 na serwerze
-oraz dozwolone przekierowania TCP w konfiguracji SSH. Nie zmieniaj jej w ramach zadania.
-
-**Zadania:**
-
-1. W lokalnym terminalu A (z ustawionym REMOTE_DIR) uruchom przez SSH testowy
-   HTTP na zdalnym 127.0.0.1:18765, udostępniający wyłącznie katalog synced.
-2. W lokalnym B utwórz tunel 127.0.0.1:18766 → zdalne 127.0.0.1:18765.
-3. W lokalnym C pobierz przez curl lessons.csv i porównaj z oryginałem.
-4. Zakończ tunel w B i własny serwer testowy w A przez Ctrl+C. Nie kończ sesji
-   przed zatrzymaniem programu HTTP; ssh -t zapewnia mu zdalny terminal.
-
-<details>
-<summary>Rozwiązanie: trzy terminale</summary>
-
-Terminal A, w katalogu labu, z REMOTE_DIR z działu 8.2:
-
-```bash
-ssh -F scratch/course/ssh-config kurs-server 'command -v python3'
-ssh -t -F scratch/course/ssh-config kurs-server "python3 -m http.server 18765 --bind 127.0.0.1 --directory '$REMOTE_DIR/synced'"
-```
-
-Terminal B, również w katalogu labu:
-
-```bash
-ssh -F scratch/course/ssh-config -N -o ExitOnForwardFailure=yes -L 127.0.0.1:18766:127.0.0.1:18765 kurs-server
-```
-
-Terminal C, w katalogu labu:
-
-```bash
-curl --noproxy '*' --fail --max-time 10 http://127.0.0.1:18766/lessons.csv -o scratch/course/from-tunnel.csv
-diff data/lessons.csv scratch/course/from-tunnel.csv
-```
-
-Pierwsze 127.0.0.1 w -L to lokalny adres nasłuchu; drugie odnosi się do serwera.
-Tunel działa tylko, dopóki działa sesja B; serwer HTTP tylko, dopóki działa A.
-ExitOnForwardFailure wykrywa błąd utworzenia nasłuchu, ale nie potwierdza,
-że zdalny HTTP działa — to sprawdza dopiero curl. Jeśli port jest zajęty,
-wybierz inny i zmień odpowiedni numer we wszystkich komendach; nie kończ obcej usługi.
-
-</details>
-
-**Zaliczenie działu 8:** [ ] działające SSH i rozróżnienie lokalne/zdalne;
-[ ] zgodny CSV po wysłaniu i pobraniu; [ ] rzeczywista synchronizacja katalogu
-oraz nowej notatki. [ ] Opcjonalnie poprawny tunel i zakończony testowy serwer.
-Zapisz wyniki w scratch/course/progress.md, bez haseł i kluczy.
-Przygotowanie instrukcji nie oznacza wykonania połączeń ani zmian na Twoim serwerze.
+**Zaliczenie:** [ ] logowanie i powrót przez exit; [ ] wysłany CSV;
+[ ] pobrana zgodna kopia; [ ] rozumiesz kierunek scp. Zapisz wynik w
+scratch/course/progress.md. Rsync i tunel SSH możesz poznać później ze
+[ściągi](SCIAGA.md) — nie są wymagane w tej 10-minutowej lekcji.
 
 ## 9. Aliasy i funkcje · 15 minut
 
